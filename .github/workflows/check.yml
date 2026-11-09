@@ -1,0 +1,76 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Find the changed files
+        id: changed
+        env:
+          BEFORE: ${{ github.event.before || github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "mode=--all-strict" >> "$GITHUB_OUTPUT"
+          else
+            files=$(git diff --name-only "$BEFORE" HEAD | tr '\n' ' ')
+            echo "mode=--changed $files" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check the repository
+        run: |
+          python .github/scripts/check-repo.py ${{ steps.changed.outputs.mode }} --report check-report.json \
+            | tee check-output.txt
+        shell: bash -o pipefail {0}
+
+      - name: Write the summary
+        if: always()
+        run: |
+          {
+            echo '## Repository check'
+            echo '```'
+            cat check-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: check-report
+          path: check-report.json
+
+  cli-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: kortx/cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run the tests
+        run: uv run --locked python -m unittest discover -s tests -v

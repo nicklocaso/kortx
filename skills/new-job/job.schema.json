@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kortx/job.schema.json",
+  "title": "kortx job",
+  "description": "Front matter of a job file. Format version 1. See job-format.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "description", "schedule", "timezone", "enabled", "writes"],
+  "properties": {
+    "format": {
+      "const": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^\\n]+$"
+    },
+    "schedule": {
+      "type": "string",
+      "pattern": "^\\S+(\\s+\\S+){4}$"
+    },
+    "timezone": {
+      "type": "string",
+      "pattern": "^[A-Za-z]+(/[A-Za-z0-9_+-]+)*$"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "writes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!(.*/)?\\.\\.(/|$))[^\\s\\\\]+$"
+      }
+    },
+    "network": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      }
+    },
+    "secrets": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]*$"
+      }
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 120
+    },
+    "budget-eur": {
+      "type": "number",
+      "default": 0.5,
+      "exclusiveMinimum": 0
+    },
+    "retries": {
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 5
+    },
+    "overlap": {
+      "enum": ["skip", "queue"],
+      "default": "skip"
+    },
+    "missed": {
+      "enum": ["skip", "run-once"],
+      "default": "skip"
+    },
+    "until": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "notify": {
+      "enum": ["failure", "always", "never"],
+      "default": "failure"
+    },
+    "output-branch": {
+      "type": "string",
+      "default": "data",
+      "pattern": "^[a-z0-9]+([-/][a-z0-9]+)*$"
+    }
+  }
+}

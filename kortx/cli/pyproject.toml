@@ -1,0 +1,16 @@
+[project]
+name = "kortx"
+version = "0.1.0"
+description = "Command line interface of the kortx framework."
+requires-python = ">=3.12"
+dependencies = [
+    "jsonschema>=4.23",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+kortx = "kortx.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
