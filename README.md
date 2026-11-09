@@ -46,7 +46,10 @@ Do not use a GitHub fork for an instance. A fork of a public repository is publi
    cd my-instance
    git remote rename origin upstream
    git remote add origin <URL of your private repository>
+   git remote set-url --push upstream DISABLED
    ```
+
+   The last command stops all pushes to kortx. Without it, a wrong `git push upstream` can send the data of your instance to the public framework.
 
 3. In `AGENTS.md`, change the `Instance` section: the name of the instance and your language.
 4. Commit and push:
@@ -56,26 +59,62 @@ Do not use a GitHub fork for an instance. A fork of a public repository is publi
    git push -u origin main
    ```
 
+## Clone an instance on a new computer
+
+The `upstream` remote is not in the repository. Add it in each new clone:
+
+```
+git clone <URL of your private repository> my-instance
+cd my-instance
+git remote add upstream https://github.com/nicklocaso/kortx.git
+git remote set-url --push upstream DISABLED
+```
+
 ## Update an instance
 
 ```
-git pull upstream main
+git fetch upstream
+git merge upstream/main -m "chore: update kortx framework"
+git push
 ```
 
 - Change framework files only in the kortx repository. Then update the instances.
 - Change only the `Instance` section of `AGENTS.md` in an instance. Other changes to framework files cause merge conflicts.
+
+## Develop kortx from an instance
+
+Clone kortx next to the instance. Then open the two folders in one agent session, for example with Claude Code:
+
+```
+git clone https://github.com/nicklocaso/kortx.git ~/kortx
+cd ~/my-instance
+claude --add-dir ~/kortx
+```
+
+1. Change the framework files in the kortx clone.
+2. Commit and push in the kortx clone.
+3. In the instance, do the steps in "Update an instance".
+
+Before the agent makes a commit, make sure that it uses the correct repository.
 
 ## Install the CLI
 
 The CLI runs on Linux and macOS. On Windows, use WSL.
 
 1. Install uv: `brew install uv` on macOS, or see the uv documentation.
-2. Add these lines to `~/.zshrc` or `~/.bashrc`. Change the path to the clone of your instance:
+2. Add these lines to `~/.zshrc` or `~/.bashrc`. Change `KORTX_DEFAULT` to the clone of your main instance:
 
    ```
-   export KORTX_ROOT="$HOME/my-instance"
-   kortx() { uv run --locked --quiet --project "$KORTX_ROOT/kortx/cli" kortx "$@"; }
+   export KORTX_DEFAULT="$HOME/my-instance"
+   kortx() {
+     local root
+     root=$(git rev-parse --show-toplevel 2>/dev/null)
+     [ -f "$root/kortx/cli/pyproject.toml" ] || root="$KORTX_DEFAULT"
+     KORTX_ROOT="$root" uv run --locked --quiet --project "$root/kortx/cli" kortx "$@"
+   }
    ```
+
+   In a folder of an instance, the CLI uses that instance. In all other folders, the CLI uses `KORTX_DEFAULT`. Thus many instances can be on one computer.
 
 3. Open a new terminal. Make sure that the CLI operates:
 
@@ -84,7 +123,7 @@ The CLI runs on Linux and macOS. On Windows, use WSL.
    kortx root
    ```
 
-The CLI uses the code in the clone. After `git pull`, the next command uses the new code.
+The CLI uses the code in the clone. After an update, the next command uses the new code.
 Do not use `uv tool install`. It does not use `uv.lock`, so the versions of the dependencies can be different.
 
 ## Check
