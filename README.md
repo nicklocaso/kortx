@@ -110,4 +110,4 @@ If you use or change kortx, keep the copyright notice and the license. Share you
 
 ## Author
 
-Copyright (C) 2026 Nicola Locaso ([@nicklocaso](https://github.com/nicklocaso)).
+Copyright (C) 2026 Nicola Lo Caso ([@nicklocaso](https://github.com/nicklocaso)).
