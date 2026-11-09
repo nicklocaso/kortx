@@ -11,7 +11,7 @@ description: Add a new skill, or change the rules of a skill or a contract. Use 
 2. Get a name from the user. Use kebab-case.
 3. Decide the location:
    - For many projects, use `skills/<name>/`.
-   - For one project only, use `projects/<project>/skills/<name>/`.
+   - For one unit only, use `projects/<unit>/skills/<name>/`.
 4. Write `SKILL.md` with the structure below.
 5. Write the text with the `write-docs` skill.
 6. Add the skill to the applicable index.

@@ -23,8 +23,8 @@
 ## Later
 - T15 Add the kortx job validate command.
 - T16 Add the kortx new project and kortx new job commands.
-- T17 Support nested units in the check, for clients with many repositories.
 - T18 Add a document index for original files in Google Drive.
 - T19 Add a rule to update exclude-newer dates in project scripts.
 
 ## Done
+- T17 2026-11-09 Support nested units in the check, for clients with many repositories.

@@ -79,3 +79,5 @@ To add a command:
 - 2026-11-09: Keep the instance settings in the `Instance` section of `AGENTS.md`.
 - 2026-11-09: License: AGPL-3.0 for code, CC BY-SA 4.0 for Markdown files.
 - 2026-11-09: Commits have no trailers.
+- 2026-11-09: A folder in `projects/` with `backlog.md` is a unit. A child unit is in the `Units` section of its parent. The contract is `skills/new-project/unit-format.md`.
+- 2026-11-09: The unit name is the path relative to `projects/`. The name `kortx` is reserved. A job cannot write in a child unit.

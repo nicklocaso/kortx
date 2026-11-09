@@ -24,7 +24,7 @@ This file gives the known requirements for the framework.
 ## Structure
 
 - A unit is a folder with `README.md` and `backlog.md`.
-- A unit can contain other units.
+- A unit can contain other units. The contract is `skills/new-project/unit-format.md`.
 - In a personal instance, a unit is usually a project. A project can have zero or more repositories.
 - In a work instance, a unit can be a client. A client unit contains one unit for each repository: `projects/<client>/<repository>/`.
 - An instance never contains the code of an external repository. The unit `README.md` has a `Repositories` section with the URL and the path of the local clone.

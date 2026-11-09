@@ -19,7 +19,7 @@ Use Conventional Commits:
 - Use the imperative mood: "add", not "added".
 - Use a maximum of 10 words in the description.
 - Use lowercase. Do not put a period at the end.
-- Use the project folder name as the scope for changes in `projects/`.
+- Use the unit name as the scope for changes in `projects/`, for example `website` or `acme/api`.
 - Do not add a body or trailers, except when the user asks for them.
 
 ## Types

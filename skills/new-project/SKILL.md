@@ -1,19 +1,24 @@
 ---
 name: new-project
-description: Add a new project to the projects folder. Use it when the user starts a project.
+description: Add a new project or a child unit to the projects folder. Use it when the user starts a project or adds a unit to a project.
 ---
 
 # New project
 
 ## Procedure
 
-1. Get a project name from the user. Use kebab-case.
-2. Make sure that `projects/<name>/` does not exist.
-3. Copy `template/` to `projects/<name>/`.
-4. Write the purpose of the project in `projects/<name>/README.md`.
-5. Add the first tasks to `projects/<name>/backlog.md` with the `backlog` skill.
-6. Add the project to the index in `projects/README.md`.
-7. Make a commit with the `commit` skill.
+1. Read `unit-format.md` in this folder.
+2. Get a name from the user. Use kebab-case.
+3. Ask the user for the parent unit, if the new unit is a child unit.
+4. Find the unit name: `<name>`, or `<parent>/<name>` for a child unit.
+5. Make sure that `projects/<unit>/` does not exist.
+6. Copy `template/` to `projects/<unit>/`.
+7. Write the purpose of the unit in `projects/<unit>/README.md`.
+8. Add the first tasks to `projects/<unit>/backlog.md` with the `backlog` skill.
+9. Add the unit to the index:
+   - For a unit directly in `projects/`, use the index in `projects/README.md`.
+   - For a child unit, use the `Units` section in the `README.md` of the parent unit.
+10. Make a commit with the `commit` skill.
 
 ## Code location
 
@@ -23,9 +28,9 @@ description: Add a new project to the projects folder. Use it when the user star
 
 ## Rules
 
-- Keep all project files in the project folder.
-- Put rules for the project in `projects/<name>/README.md`.
-- Put skills for one project only in `projects/<name>/skills/`.
-- Put skills for many projects in the root `skills/` folder.
-- Put tasks in `projects/<name>/backlog.md`. Use the `backlog` skill.
-- Put recurring jobs in `projects/<name>/jobs/`. Use the `new-job` skill.
+- Keep all unit files in the unit folder.
+- Put rules for the unit in `projects/<unit>/README.md`.
+- Put skills for one unit only in `projects/<unit>/skills/`.
+- Put skills for many units in the root `skills/` folder.
+- Put tasks in `projects/<unit>/backlog.md`. Use the `backlog` skill.
+- Put recurring jobs in `projects/<unit>/jobs/`. Use the `new-job` skill.

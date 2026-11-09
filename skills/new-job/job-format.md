@@ -8,16 +8,18 @@ Do not change the contract without a review of all tools that use it.
 ## Location
 
 ```
-projects/<project>/jobs/<job>.md
+projects/<unit>/jobs/<job>.md
 kortx/jobs/<job>.md               ← framework jobs
 ```
+
+`<unit>` is the unit name, for example `website` or `acme/api`. See `skills/new-project/unit-format.md`.
 
 - Use kebab-case for `<job>`.
 - Put one job in each file.
 
 ## Job ID
 
-- The job ID is `<project>/<job>`. The file path gives the ID. For framework jobs, the ID is `kortx/<job>`.
+- The job ID is `<unit>/<job>`, for example `acme/api/weekly-report`. The file path gives the ID. For framework jobs, the ID is `kortx/<job>`.
 - Do not write the ID in the file.
 - If you rename or move the file, the ID changes.
 
@@ -79,8 +81,10 @@ tools:
 
 ## Paths
 
-- Write paths in `writes` relative to the project folder.
-- For example, `data/**` in the project `website` is `projects/website/data/**`.
+- Write paths in `writes` relative to the unit folder.
+- For example, `data/**` in the unit `website` is `projects/website/data/**`.
+- A job cannot write in a child unit. A path must not match the folder of a child unit.
+- For example, in the unit `acme` with the child unit `api`, the check refuses `api/**` and `**`. Use `data/**`.
 - Use glob patterns: `*` for one level, `**` for all levels.
 - Do not use absolute paths. Do not use `..`. The schema refuses these paths.
 - Exception: the framework jobs in `kortx/jobs/` maintain all the repository. Their paths are relative to the repository root. The executor must apply this exception only to `kortx/jobs/`.

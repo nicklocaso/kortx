@@ -8,14 +8,14 @@ description: Add or change a recurring job in a project. Use it when the user wa
 ## Procedure
 
 1. Read `job-format.md` in this folder.
-2. Get the project name from the user. Make sure that `projects/<project>/` exists.
+2. Get the unit name from the user. Make sure that `projects/<unit>/` exists.
 3. Get a job name from the user. Use kebab-case.
 4. Get the schedule and the time zone from the user. Write the schedule as a cron expression.
 5. Find the minimum permissions for the job: `writes`, `network`, `tools` and `secrets`.
 6. Write the prompt with the `write-docs` skill.
-7. Write `projects/<project>/jobs/<job>.md` as `job-format.md` tells you.
+7. Write `projects/<unit>/jobs/<job>.md` as `job-format.md` tells you.
 8. Validate the front matter with `job.schema.json`.
-9. Make a commit with the `commit` skill. Use the `feat` type and the project name as the scope.
+9. Make a commit with the `commit` skill. Use the `feat` type and the unit name as the scope.
 
 ## Rules
 

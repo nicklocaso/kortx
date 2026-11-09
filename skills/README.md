@@ -9,7 +9,7 @@ The files use the Agent Skills format.
 | --- | --- |
 | `commit` | Make a git commit. |
 | `write-docs` | Write documentation and messages in ASD-STE100. |
-| `new-project` | Add a project to `projects/`. |
+| `new-project` | Add a project or a child unit to `projects/`. |
 | `remember` | Save important information to `memory/`. |
 | `recall` | Find information in `memory/`. |
 | `new-skill` | Add a skill, or change the rules of a skill or a contract. |

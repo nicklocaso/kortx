@@ -7,9 +7,11 @@ Do not change it without a review of all tools that use it.
 ## Location
 
 ```
-projects/<project>/backlog.md        ← open and recent tasks
-projects/<project>/backlog-done.md   ← old completed tasks
+projects/<unit>/backlog.md        ← open and recent tasks
+projects/<unit>/backlog-done.md   ← old completed tasks
 ```
+
+`<unit>` is the unit name, for example `website` or `acme/api`. See `skills/new-project/unit-format.md`.
 
 ## File structure
 
@@ -65,10 +67,10 @@ projects/<project>/backlog-done.md   ← old completed tasks
 
 ## IDs
 
-- An ID is unique in the project. Never use an ID again.
+- An ID is unique in the unit. Never use an ID again.
 - The new ID is the highest ID in `backlog.md` and `backlog-done.md`, plus 1.
-- The full reference is `<project>#<ID>`, for example `website#T4`.
-- Use the full reference in other projects, in notes and in jobs.
+- The full reference is `<unit>#<ID>`, for example `website#T4` or `acme/api#T4`.
+- Use the full reference in other units, in notes and in jobs.
 
 ## Archive
 
@@ -77,7 +79,7 @@ projects/<project>/backlog-done.md   ← old completed tasks
 
 ## Other information
 
-- Write decisions in the `Notes` of the project `README.md`. Do not write them in the backlog.
+- Write decisions in the `Notes` of the unit `README.md`. Do not write them in the backlog.
 - Write an open question as a task with a verb, for example "Decide the fan power supply".
 
 ## Change the contract

@@ -10,6 +10,7 @@ only. The audit job corrects the warnings.
 """
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -29,6 +30,7 @@ AGENTS_MAX_LINES = 50
 MEMORY_MAX_LINES = 100
 FRAMEWORK_UNIT = "kortx"
 PROJECT_SECTIONS = ["Purpose", "Status", "Structure", "Notes"]
+UNITS_SECTION = "Units"
 PROJECT_STATUS = {"active", "paused", "done"}
 BACKLOG_SECTIONS = ["Doing", "Next", "Blocked", "Later", "Done"]
 BACKLOG_DOING_MAX = 3
@@ -118,16 +120,38 @@ def check_skills(c):
             c.add(path, "skill", "The description is missing.")
 
 
+def find_units():
+    """Return the unit folders in projects/: each top folder and each folder with backlog.md."""
+    units = {f"projects/{name}" for name in subdirs("projects")}
+    for f in tracked_files():
+        path = Path(f)
+        if path.name == "backlog.md" and len(path.parts) > 3 and path.parts[0] == "projects":
+            units.add(path.parent.as_posix())
+    return sorted(units)
+
+
+def parent_of(unit):
+    return Path(unit).parent.as_posix()
+
+
 def check_projects(c):
     projects = subdirs("projects")
     check_index(c, "projects/README.md", "projects", projects)
-    units = [f"projects/{name}" for name in projects]
+    units = find_units()
+    if f"projects/{FRAMEWORK_UNIT}" in units:
+        c.add(f"projects/{FRAMEWORK_UNIT}", "unit", f"The name {FRAMEWORK_UNIT} is reserved for the framework.")
+    for unit in units:
+        parent = parent_of(unit)
+        if parent != "projects" and parent not in units:
+            c.add(unit, "unit", f"The folder {parent} is not a unit. A child unit must be in a unit.")
     if (ROOT / FRAMEWORK_UNIT).is_dir():
         units.append(FRAMEWORK_UNIT)
     for unit in units:
+        children = [Path(u).name for u in units if parent_of(u) == unit]
         check_project_readme(c, unit)
+        check_units_section(c, unit, children)
         check_backlog(c, unit)
-        check_jobs(c, unit)
+        check_jobs(c, unit, children)
 
 
 def check_project_readme(c, folder):
@@ -145,6 +169,18 @@ def check_project_readme(c, folder):
     for listed in INDEX_ROW.findall("\n".join(content.get("Structure", []))):
         if not (ROOT / folder / listed.rstrip("/")).exists():
             c.add(path, "structure", f"{listed} is in the structure table but does not exist.")
+
+
+def check_units_section(c, folder, children):
+    path = f"{folder}/README.md"
+    if not (ROOT / path).exists():
+        return
+    order, content = sections(read(path))
+    listed = {name.rstrip("/") for name in INDEX_ROW.findall("\n".join(content.get(UNITS_SECTION, [])))}
+    for name in sorted(set(children) - listed):
+        c.add(f"{folder}/{name}", "unit", f"Not in the {UNITS_SECTION} section of {path}.")
+    for name in sorted(listed - set(children)):
+        c.add(path, "unit", f"{name} is in the {UNITS_SECTION} section but {folder}/{name}/backlog.md does not exist.")
 
 
 def check_backlog(c, folder):
@@ -193,7 +229,7 @@ def check_backlog(c, folder):
         c.add(path, "backlog", f"Done has more than {BACKLOG_DONE_MAX} tasks. Move old tasks to backlog-done.md.")
 
 
-def check_jobs(c, folder):
+def check_jobs(c, folder, children):
     jobs = ROOT / folder / "jobs"
     if not jobs.is_dir():
         return
@@ -212,6 +248,12 @@ def check_jobs(c, folder):
         for error in validator.iter_errors(meta):
             where = "/".join(str(p) for p in error.absolute_path) or "front matter"
             c.add(path, "job", f"{where}: {error.message}")
+        writes = meta.get("writes") if isinstance(meta, dict) else None
+        for pattern in writes if isinstance(writes, list) else []:
+            first = str(pattern).split("/")[0]
+            for child in children:
+                if fnmatch.fnmatchcase(child, first):
+                    c.add(path, "job", f"writes: {pattern} can change the child unit {child}.")
 
 
 def check_memory(c):
@@ -228,10 +270,14 @@ def check_memory(c):
 
 
 def tracked_files():
-    """Return the files that git tracks, or all files if git is not available."""
+    """Return the files that git tracks or can track, or all files if git is not available.
+
+    New files that are not added are included. Files that git ignores are not included.
+    """
     try:
         out = subprocess.run(
-            ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            cwd=ROOT, capture_output=True, check=True,
         ).stdout.decode()
         return [f for f in out.split("\0") if f]
     except (OSError, subprocess.CalledProcessError):
