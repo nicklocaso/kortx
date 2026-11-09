@@ -31,6 +31,13 @@ MEMORY_MAX_LINES = 100
 FRAMEWORK_UNIT = "kortx"
 PROJECT_SECTIONS = ["Purpose", "Status", "Structure", "Notes"]
 UNITS_SECTION = "Units"
+REPOSITORIES_SECTION = "Repositories"
+REPOSITORIES_TABLE = ["| Repository | Local clone |", "| --- | --- |"]
+REPOSITORY_ROW = re.compile(r"^\| `(?P<url>[^`]+)` \| `(?P<clone>[^`]+)` \|$")
+REPOSITORY_URL = re.compile(r"^(https://[^\s/@]+/\S+|git@[^\s:/@]+:\S+)$")
+REPOSITORY_CLONE = re.compile(r"^~/\S+$")
+DATA_FOLDER = "data"
+DATA_FORMATS = {".json", ".csv", ".yaml", ".txt", ".png", ".svg", ".pdf"}
 PROJECT_STATUS = {"active", "paused", "done"}
 BACKLOG_SECTIONS = ["Doing", "Next", "Blocked", "Later", "Done"]
 BACKLOG_DOING_MAX = 3
@@ -150,6 +157,8 @@ def check_projects(c):
         children = [Path(u).name for u in units if parent_of(u) == unit]
         check_project_readme(c, unit)
         check_units_section(c, unit, children)
+        if check_repositories_section(c, unit):
+            check_repository_unit_files(c, unit, units)
         check_backlog(c, unit)
         check_jobs(c, unit, children)
 
@@ -181,6 +190,60 @@ def check_units_section(c, folder, children):
         c.add(f"{folder}/{name}", "unit", f"Not in the {UNITS_SECTION} section of {path}.")
     for name in sorted(listed - set(children)):
         c.add(path, "unit", f"{name} is in the {UNITS_SECTION} section but {folder}/{name}/backlog.md does not exist.")
+
+
+def check_repositories_section(c, folder):
+    """Check the Repositories section. Return True if the README has the section."""
+    path = f"{folder}/README.md"
+    if not (ROOT / path).exists():
+        return False
+    order, content = sections(read(path))
+    if REPOSITORIES_SECTION not in order:
+        return False
+    lines = [line.strip() for line in content[REPOSITORIES_SECTION]]
+    if lines[:2] != REPOSITORIES_TABLE:
+        c.add(path, "repositories", f"The {REPOSITORIES_SECTION} table must start with {REPOSITORIES_TABLE[0]}.")
+        return True
+    if len(lines) == 2:
+        c.add(path, "repositories", f"The {REPOSITORIES_SECTION} table has no repository.")
+    urls, clones = set(), set()
+    for line in lines[2:]:
+        m = REPOSITORY_ROW.match(line)
+        if not m:
+            c.add(path, "repositories", f"Row not valid: {line}")
+            continue
+        url, clone = m["url"], m["clone"]
+        if url.startswith("https://") and "@" in url[len("https://"):].split("/")[0]:
+            c.add(path, "repositories", f"{url} contains credentials. Remove them.")
+        elif not REPOSITORY_URL.match(url):
+            c.add(path, "repositories", f"{url} is not valid. Use https:// or git@.")
+        if not REPOSITORY_CLONE.match(clone) or ".." in clone.split("/"):
+            c.add(path, "repositories", f"{clone} is not valid. Use a path that starts with ~/, without '..'.")
+        for value, seen in ((url, urls), (clone, clones)):
+            if value in seen:
+                c.add(path, "repositories", f"{value} is in the table more than one time.")
+            seen.add(value)
+    return True
+
+
+def check_repository_unit_files(c, folder, units):
+    """A unit with a Repositories section contains only Markdown files and data files in data/."""
+    for f in tracked_files():
+        if not f.startswith(folder + "/"):
+            continue
+        owner = max((u for u in units if f.startswith(u + "/")), key=len)
+        if owner != folder:
+            continue
+        if f.endswith("/"):
+            c.add(f.rstrip("/"), "repositories", "A git repository is in the unit. Keep the clone outside the instance.")
+            continue
+        path = Path(f).relative_to(folder)
+        if path.suffix == ".md":
+            continue
+        if path.parts[0] == DATA_FOLDER and len(path.parts) > 1 and path.suffix in DATA_FORMATS:
+            continue
+        c.add(f, "repositories", f"Not permitted in a unit with a {REPOSITORIES_SECTION} section. "
+              f"Use Markdown files, or data files in {DATA_FOLDER}/: {', '.join(sorted(DATA_FORMATS))}.")
 
 
 def check_backlog(c, folder):

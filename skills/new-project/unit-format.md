@@ -58,6 +58,32 @@ A parent unit has a `Units` section in its `README.md`, after `Structure`:
 - Each row must have a folder with `backlog.md`.
 - A unit with no child units does not need this section.
 
+## Repositories section
+
+A unit that describes external repositories has a `Repositories` section in its `README.md`, after `Structure` and `Units`:
+
+```markdown
+## Repositories
+
+| Repository | Local clone |
+| --- | --- |
+| `git@github.com:acme/api.git` | `~/work/acme/api` |
+```
+
+- The section is optional. If the section exists, the table has one or more rows.
+- Write the URL and the local clone between backticks.
+- Start the URL with `https://` or `git@`. Do not write credentials in the URL.
+- Start the local clone with `~/`. Do not use `..`.
+- Write each URL and each local clone one time only.
+- The check does not look for the local clone. The local clone is different on each computer.
+
+A unit with a `Repositories` section never contains the code of the repositories. It contains only notes, the backlog and jobs:
+
+- Markdown files, in all the folders of the unit.
+- Data files in `data/`, for the results of jobs: `.json`, `.csv`, `.yaml`, `.txt`, `.png`, `.svg`, `.pdf`.
+
+The check refuses all other files and each git repository in the unit. The files of a child unit are not in this rule. The check examines them with the child unit.
+
 ## Index
 
 - Put each unit that is directly in `projects/` in the index of `projects/README.md`.

@@ -33,14 +33,19 @@ writes:
 """
 
 
-def readme(name, units=None):
+def repositories(*rows):
+    text = "## Repositories\n\n| Repository | Local clone |\n| --- | --- |\n"
+    return text + "".join(f"| `{url}` | `{clone}` |\n" for url, clone in rows) + "\n"
+
+
+def readme(name, units=None, extra=""):
     text = f"# {name}\n\n## Purpose\n\nA test unit.\n\n## Status\n\nactive\n\n## Structure\n\n"
     text += "| Path | Content |\n| --- | --- |\n| `README.md` | This file. |\n\n"
     if units is not None:
         text += "## Units\n\n| Unit | Purpose |\n| --- | --- |\n"
         text += "".join(f"| `{unit}` | A child unit. |\n" for unit in units)
         text += "\n"
-    return text + "## Notes\n\n- 2026-11-09: Start the unit.\n"
+    return text + extra + "## Notes\n\n- 2026-11-09: Start the unit.\n"
 
 
 def index(title, rows):
@@ -75,8 +80,8 @@ class CheckTestCase(unittest.TestCase):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
 
-    def add_unit(self, folder, units=None):
-        self.write(f"{folder}/README.md", readme(Path(folder).name, units))
+    def add_unit(self, folder, units=None, extra=""):
+        self.write(f"{folder}/README.md", readme(Path(folder).name, units, extra))
         self.write(f"{folder}/backlog.md", BACKLOG)
 
     def add_job(self, folder, *writes):
@@ -111,6 +116,91 @@ class TestValidRepository(CheckTestCase):
         self.add_job("projects/acme", "data/**", "*.md")
         self.add_job("projects/acme/api", "**")
         self.assertEqual(self.issues(), [])
+
+
+class TestRepositoriesSection(CheckTestCase):
+    """The child unit `api` describes an external repository."""
+
+    def set_repositories(self, *rows):
+        self.add_unit("projects/acme/api", extra=repositories(*rows))
+
+    def assertRepositoriesIssue(self, text, path="projects/acme/api/README.md"):
+        self.assertIssue(path, "repositories", text)
+
+    def test_valid_repositories(self):
+        self.set_repositories(
+            ("https://github.com/acme/api", "~/work/acme/api"),
+            ("git@github-work:acme/api-docs.git", "~/work/acme/api-docs"),
+        )
+        self.write("projects/acme/api/design.md", "# Design\n")
+        self.add_job("projects/acme/api", "data/**")
+        for name in ("report.json", "report.csv", "report.yaml", "report.txt", "chart.png", "chart.svg", "report.pdf"):
+            self.write(f"projects/acme/api/data/2026/{name}", "1\n")
+        self.assertEqual(self.issues(), [])
+
+    def test_code_of_child_unit_is_not_checked(self):
+        self.add_unit("projects/acme", units=["api"], extra=repositories(("https://github.com/acme/docs", "~/docs")))
+        self.write("projects/acme/api/tool.py", "print(1)\n")
+        self.assertEqual(self.issues(), [])
+
+    def test_table_not_valid(self):
+        self.add_unit("projects/acme/api", extra="## Repositories\n\n| URL | Clone |\n| --- | --- |\n\n")
+        self.assertRepositoriesIssue("must start with")
+
+    def test_table_without_rows(self):
+        self.set_repositories()
+        self.assertRepositoriesIssue("has no repository")
+
+    def test_row_not_valid(self):
+        self.add_unit("projects/acme/api", extra=repositories()[:-1] + "| https://github.com/acme/api | ~/api |\n\n")
+        self.assertRepositoriesIssue("Row not valid")
+
+    def test_url_not_valid(self):
+        for url in ("http://github.com/acme/api", "github.com/acme/api", "ssh://git@github.com/acme/api"):
+            with self.subTest(url=url):
+                self.set_repositories((url, "~/api"))
+                self.assertRepositoriesIssue("is not valid. Use https:// or git@.")
+
+    def test_url_with_credentials(self):
+        for url in ("https://user:token@github.com/acme/api", "https://token@github.com/acme/api"):
+            with self.subTest(url=url):
+                self.set_repositories((url, "~/api"))
+                self.assertRepositoriesIssue("contains credentials")
+
+    def test_clone_not_valid(self):
+        for clone in ("/Users/me/api", "work/api", "~/work/../api", "~"):
+            with self.subTest(clone=clone):
+                self.set_repositories(("https://github.com/acme/api", clone))
+                self.assertRepositoriesIssue("Use a path that starts with ~/")
+
+    def test_duplicate_rows(self):
+        self.set_repositories(
+            ("https://github.com/acme/api", "~/api"),
+            ("https://github.com/acme/api", "~/api"),
+        )
+        self.assertRepositoriesIssue("https://github.com/acme/api is in the table more than one time")
+        self.assertRepositoriesIssue("~/api is in the table more than one time")
+
+    def test_code_file_not_permitted(self):
+        self.set_repositories(("https://github.com/acme/api", "~/api"))
+        self.write("projects/acme/api/tool.py", "print(1)\n")
+        self.assertRepositoriesIssue("Not permitted", "projects/acme/api/tool.py")
+
+    def test_data_format_not_permitted(self):
+        self.set_repositories(("https://github.com/acme/api", "~/api"))
+        for name in ("data/run.sh", "data/archive.zip", "data/config.yml", "report.json"):
+            with self.subTest(name=name):
+                self.write(f"projects/acme/api/{name}", "1\n")
+                self.assertRepositoriesIssue("Not permitted", f"projects/acme/api/{name}")
+
+    def test_git_repository_in_unit(self):
+        self.set_repositories(("https://github.com/acme/api", "~/api"))
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        clone = self.root / "projects/acme/api/clone"
+        clone.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
+        (clone / "main.py").write_text("print(1)\n")
+        self.assertRepositoriesIssue("A git repository is in the unit", "projects/acme/api/clone")
 
 
 class TestNotValidRepository(CheckTestCase):

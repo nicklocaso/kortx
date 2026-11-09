@@ -14,17 +14,40 @@ description: Add a new project or a child unit to the projects folder. Use it wh
 5. Make sure that `projects/<unit>/` does not exist.
 6. Copy `template/` to `projects/<unit>/`.
 7. Write the purpose of the unit in `projects/<unit>/README.md`.
-8. Add the first tasks to `projects/<unit>/backlog.md` with the `backlog` skill.
-9. Add the unit to the index:
-   - For a unit directly in `projects/`, use the index in `projects/README.md`.
-   - For a child unit, use the `Units` section in the `README.md` of the parent unit.
-10. Make a commit with the `commit` skill.
+8. For a unit of an external repository, write the `Repositories` section in `projects/<unit>/README.md`. Get the URL and the local clone from the user.
+9. Add the first tasks to `projects/<unit>/backlog.md` with the `backlog` skill.
+10. Add the unit to the index:
+    - For a unit directly in `projects/`, use the index in `projects/README.md`.
+    - For a child unit, use the `Units` section in the `README.md` of the parent unit.
+11. Make a commit with the `commit` skill.
+12. For a unit of an external repository, tell the user how to work on the repository. See "Work on an external repository".
 
 ## Code location
 
 - Keep code that applies the rules of the framework in `kortx/`. Change it only in the kortx repository.
 - Keep the code of an independent product in its own repository.
-- For an independent product, the project folder contains only `README.md`, `backlog.md` and `jobs/`. Write the repository URL in the `Purpose` section.
+- For an independent product, the unit contains only Markdown files and `data/`. Write the repository URL in the `Repositories` section. See `unit-format.md`.
+
+## Work on an external repository
+
+Open the local clone and the instance in one agent session. Start the session in the local clone, and add the instance.
+If you start in the instance, the agent can lose the rules of the external repository.
+
+Example for Claude Code:
+
+```
+cd ~/work/acme/api
+CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 claude --add-dir ~/my-instance
+```
+
+- Without the variable, Claude Code does not read the `CLAUDE.md` file of a folder that `--add-dir` adds. Thus it does not read the rules of the instance.
+- Claude Code reads the skills of the added folders also without the variable.
+
+Rules for each repository:
+
+- In the local clone, the rules of the external repository apply. This includes the rules for commits.
+- The rules of kortx apply only to the files of the instance.
+- Before a commit, make sure that it is in the correct repository. Put code in the local clone. Put notes, tasks and jobs in the instance.
 
 ## Rules
 
