@@ -2,6 +2,7 @@
 
 These rules apply to all agents in all harnesses.
 The skills contain the details.
+These rules apply to the files of this repository. In another repository, the rules of that repository win.
 
 ## Instance
 

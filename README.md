@@ -83,12 +83,13 @@ git push
 
 ## Develop kortx from an instance
 
-Clone kortx next to the instance. Then open the two folders in one agent session, for example with Claude Code:
+Start the session in the repository where you write the main work. Add the repositories that you only read.
+For framework work, start in the kortx clone and add the instance. Example for Claude Code:
 
 ```
 git clone https://github.com/nicklocaso/kortx.git ~/kortx
-cd ~/my-instance
-claude --add-dir ~/kortx
+cd ~/kortx
+claude --add-dir ~/my-instance
 ```
 
 1. Change the framework files in the kortx clone.

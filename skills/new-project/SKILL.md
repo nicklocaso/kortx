@@ -45,8 +45,7 @@ CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 claude --add-dir ~/my-instance
 
 Rules for each repository:
 
-- In the local clone, the rules of the external repository apply. This includes the rules for commits.
-- The rules of kortx apply only to the files of the instance.
+- The precedence of the rules is in `AGENTS.md`.
 - Before a commit, make sure that it is in the correct repository. Put code in the local clone. Put notes, tasks and jobs in the instance.
 
 ## Rules

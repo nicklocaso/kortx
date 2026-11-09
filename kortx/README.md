@@ -82,4 +82,4 @@ To add a command:
 - 2026-11-09: A folder in `projects/` with `backlog.md` is a unit. A child unit is in the `Units` section of its parent. The contract is `skills/new-project/unit-format.md`.
 - 2026-11-09: The unit name is the path relative to `projects/`. The name `kortx` is reserved. A job cannot write in a child unit.
 - 2026-11-09: A unit of an external repository has a `Repositories` section. It contains only Markdown files and data files in `data/`, never code.
-- 2026-11-09: To work on an external repository, start the session in the local clone and add the instance. In the clone, the rules of the external repository apply.
+- 2026-11-09: Start the session in the repository of the main work. Add the repositories that you only read. In each repository, the rules of that repository apply.
