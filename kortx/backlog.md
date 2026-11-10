@@ -17,6 +17,8 @@
 - T12 Decide the dashboard hosting for private instances.
 - T13 Write the GitHub Action that makes stats.json.
 - T14 Build the static dashboard page for mobile and desktop. after:T12,T13
+- T20 Define the valid names for job tools in the job contract and schema.
+- T21 Decide how to limit MCP connectors. The network field does not cover them.
 
 ## Blocked
 
