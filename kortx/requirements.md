@@ -44,5 +44,5 @@ This file gives the known requirements for the framework.
 
 ## Open questions
 
-- Which executor runs the jobs?
+- Which executor runs the jobs? A scheduled task of an agent platform can run a job, but it does not enforce `writes`, `network` and `tools`. The rules are then only text in the prompt.
 - Where do private instances show the dashboard? GitHub Pages needs a paid plan for private repositories.
