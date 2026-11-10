@@ -80,6 +80,7 @@ A unit that describes external repositories has a `Repositories` section in its 
 A unit with a `Repositories` section never contains the code of the repositories. It contains only notes, the backlog and jobs:
 
 - Markdown files, in all the folders of the unit.
+- Skills in `skills/`, with their scripts. See "Skills".
 - Data files in `data/`, for the results of jobs: `.json`, `.csv`, `.yaml`, `.txt`, `.png`, `.svg`, `.pdf`.
 
 The check refuses all other files and each git repository in the unit. The files of a child unit are not in this rule. The check examines them with the child unit.
@@ -88,6 +89,22 @@ The check refuses all other files and each git repository in the unit. The files
 
 - Put each unit that is directly in `projects/` in the index of `projects/README.md`.
 - Put each child unit only in the `Units` section of its parent unit.
+
+## Skills
+
+A skill for one unit only is in `<unit>/skills/<name>/SKILL.md`.
+
+- Write the name of the unit in the description. Agents select a skill from its description.
+- Keep the scripts of the skill in the skill folder.
+- Make a link for the skill in `.agents/skills/`. The link name is the unit name, with `--` in place of `/`, then `--` and the skill name.
+
+| Skill | Link |
+| --- | --- |
+| `projects/acme/skills/sync-invoices/` | `.agents/skills/acme--sync-invoices` |
+| `projects/acme/api/skills/sync-invoices/` | `.agents/skills/acme--api--sync-invoices` |
+
+The link names are unique because the unit names are unique and a kebab-case name never contains `--`.
+The check reports a link that is missing, broken or not necessary.
 
 ## Jobs
 

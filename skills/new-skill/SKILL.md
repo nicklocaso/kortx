@@ -14,8 +14,13 @@ description: Add a new skill, or change the rules of a skill or a contract. Use 
    - For one unit only, use `projects/<unit>/skills/<name>/`.
 4. Write `SKILL.md` with the structure below.
 5. Write the text with the `write-docs` skill.
-6. Add the skill to the applicable index.
-7. Make a commit with the `commit` skill.
+6. Add the skill to the applicable index:
+   - For a skill in `skills/`, use `skills/README.md`.
+   - For a unit skill, use the `Structure` table of the unit `README.md`.
+7. Make the link of the skill in `.agents/skills/`. Agents find skills only through these links.
+   - For a skill in `skills/`, run `ln -s ../../skills/<name> .agents/skills/<name>`.
+   - For a unit skill, follow "Skills" in `skills/new-project/unit-format.md`.
+8. Make a commit with the `commit` skill.
 
 ## Structure of SKILL.md
 
@@ -41,6 +46,7 @@ description: <What the skill does. When to use it.>
 - Give each skill one task only.
 - Keep `SKILL.md` short. Put long reference data in other files in the skill folder.
 - Write a clear description. Agents use the description to select the skill.
+- For a unit skill, write the name of the unit in the description.
 
 ## Change a rule
 

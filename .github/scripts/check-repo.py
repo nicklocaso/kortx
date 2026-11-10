@@ -36,6 +36,10 @@ REPOSITORIES_TABLE = ["| Repository | Local clone |", "| --- | --- |"]
 REPOSITORY_ROW = re.compile(r"^\| `(?P<url>[^`]+)` \| `(?P<clone>[^`]+)` \|$")
 REPOSITORY_URL = re.compile(r"^(https://[^\s/@]+/\S+|git@[^\s:/@]+:\S+)$")
 REPOSITORY_CLONE = re.compile(r"^~/\S+$")
+SKILL_LINKS = ".agents/skills"
+CLAUDE_SKILLS = ".claude/skills"
+CLAUDE_SKILLS_TARGET = "../.agents/skills"
+SKILLS_FOLDER = "skills"
 DATA_FOLDER = "data"
 DATA_FORMATS = {".json", ".csv", ".yaml", ".txt", ".png", ".svg", ".pdf"}
 PROJECT_STATUS = {"active", "paused", "done"}
@@ -112,19 +116,61 @@ def check_index(c, index_file, folder, items):
         c.add(index_file, "index", f"{name} is in the index but does not exist.")
 
 
+def check_skill(c, folder):
+    path = f"{folder}/SKILL.md"
+    if not (ROOT / path).exists():
+        c.add(folder, "skill", "SKILL.md is missing.")
+        return False
+    meta = front_matter(read(path)) or {}
+    if meta.get("name") != Path(folder).name:
+        c.add(path, "skill", "The name in the front matter is not the folder name.")
+    if not meta.get("description"):
+        c.add(path, "skill", "The description is missing.")
+    return True
+
+
 def check_skills(c):
     skills = subdirs("skills")
     check_index(c, "skills/README.md", "skills", skills)
     for name in skills:
-        path = f"skills/{name}/SKILL.md"
-        if not (ROOT / path).exists():
-            c.add(f"skills/{name}", "skill", "SKILL.md is missing.")
+        check_skill(c, f"skills/{name}")
+
+
+def unit_skill_link(unit, name):
+    """Return the link name of a unit skill: the unit path and the skill name, joined by --."""
+    parts = Path(unit).parts[1:] if unit.startswith("projects/") else Path(unit).parts
+    return "--".join([*parts, name])
+
+
+def check_skill_links(c):
+    """Each skill has a link in .agents/skills. .claude/skills is a link to .agents/skills."""
+    claude = ROOT / CLAUDE_SKILLS
+    if not claude.is_symlink() or os.readlink(claude) != CLAUDE_SKILLS_TARGET:
+        c.add(CLAUDE_SKILLS, "skill-link", f"Must be a symbolic link to {CLAUDE_SKILLS_TARGET}.")
+    expected = {}
+    for name in subdirs("skills"):
+        if (ROOT / f"skills/{name}/SKILL.md").exists():
+            expected[name] = f"skills/{name}"
+    units = find_units()
+    if (ROOT / FRAMEWORK_UNIT).is_dir():
+        units.append(FRAMEWORK_UNIT)
+    for unit in units:
+        if not (ROOT / unit / SKILLS_FOLDER).is_dir():
             continue
-        meta = front_matter(read(path)) or {}
-        if meta.get("name") != name:
-            c.add(path, "skill", "The name in the front matter is not the folder name.")
-        if not meta.get("description"):
-            c.add(path, "skill", "The description is missing.")
+        for name in subdirs(f"{unit}/{SKILLS_FOLDER}"):
+            folder = f"{unit}/{SKILLS_FOLDER}/{name}"
+            if check_skill(c, folder):
+                expected[unit_skill_link(unit, name)] = folder
+    links = ROOT / SKILL_LINKS
+    actual = {p.name: p for p in links.iterdir()} if links.is_dir() else {}
+    for name, folder in sorted(expected.items()):
+        path = f"{SKILL_LINKS}/{name}"
+        target = f"../../{folder}"
+        link = actual.get(name)
+        if link is None or not link.is_symlink() or os.readlink(link) != target:
+            c.add(path, "skill-link", f"Must be a symbolic link to {target}. Run: ln -s {target} {path}")
+    for name in sorted(set(actual) - set(expected)):
+        c.add(f"{SKILL_LINKS}/{name}", "skill-link", "The link has no skill. Remove it.")
 
 
 def find_units():
@@ -227,7 +273,7 @@ def check_repositories_section(c, folder):
 
 
 def check_repository_unit_files(c, folder, units):
-    """A unit with a Repositories section contains only Markdown files and data files in data/."""
+    """A unit with a Repositories section contains only Markdown files, skills in skills/ and data files in data/."""
     for f in tracked_files():
         if not f.startswith(folder + "/"):
             continue
@@ -238,12 +284,13 @@ def check_repository_unit_files(c, folder, units):
             c.add(f.rstrip("/"), "repositories", "A git repository is in the unit. Keep the clone outside the instance.")
             continue
         path = Path(f).relative_to(folder)
-        if path.suffix == ".md":
+        if path.suffix == ".md" or path.parts[0] == SKILLS_FOLDER:
             continue
         if path.parts[0] == DATA_FOLDER and len(path.parts) > 1 and path.suffix in DATA_FORMATS:
             continue
         c.add(f, "repositories", f"Not permitted in a unit with a {REPOSITORIES_SECTION} section. "
-              f"Use Markdown files, or data files in {DATA_FOLDER}/: {', '.join(sorted(DATA_FORMATS))}.")
+              f"Use Markdown files, skills in {SKILLS_FOLDER}/, "
+              f"or data files in {DATA_FOLDER}/: {', '.join(sorted(DATA_FORMATS))}.")
 
 
 def check_backlog(c, folder):
@@ -393,7 +440,7 @@ def main():
     args = parser.parse_args()
 
     c = Checker()
-    for check in (check_agents, check_skills, check_projects, check_memory, check_names):
+    for check in (check_agents, check_skills, check_skill_links, check_projects, check_memory, check_names):
         check(c)
 
     for issue in c.issues:

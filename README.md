@@ -34,7 +34,8 @@ Do not use a GitHub fork for an instance. A fork of a public repository is publi
 | `memory/` | Shared memory of the instance. Empty in the framework. |
 | `kortx/` | The framework project: CLI, backlog, requirements and framework jobs. |
 | `.github/` | Repository check: script and GitHub Action. |
-| `.claude/skills` | Symbolic link to `skills/` for Claude Code. |
+| `.agents/skills/` | One symbolic link for each skill, in `skills/` and in the units. For Codex, Gemini CLI and GitHub Copilot. |
+| `.claude/skills` | Symbolic link to `.agents/skills/`. For Claude Code, Cursor and GitHub Copilot. |
 
 ## Make an instance
 
