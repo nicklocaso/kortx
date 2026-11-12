@@ -17,6 +17,7 @@ The files use the Agent Skills format.
 | `new-job` | Add or change a recurring job in a project. |
 | `sync-invoices` | Download the missing invoices of the SaaS vendors of a unit. |
 | `draft-framework-issue` | Write the draft of a framework issue without private data. |
+| `investigate-issue` | Find and record the verified root cause of a defect in the codebase of a unit. |
 
 ## Rules
 
