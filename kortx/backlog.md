@@ -19,6 +19,7 @@
 - T14 Build the static dashboard page for mobile and desktop. after:T12,T13
 - T20 Define the valid names for job tools in the job contract and schema.
 - T21 Decide how to limit MCP connectors. The network field does not cover them.
+- T22 Make the session start rule in kortx/README.md agree with new-project.
 
 ## Blocked
 
