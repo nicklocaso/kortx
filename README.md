@@ -149,11 +149,10 @@ A GitHub Action checks the repository on each push.
 - An issue in a changed file is an error. The check fails.
 - An issue in another file is a warning. The audit job corrects it.
 
-To run the check on your computer:
+To run the check on your computer, install uv. See [Install the CLI](#install-the-cli). Then run:
 
 ```
-pip install pyyaml jsonschema
-python .github/scripts/check-repo.py --all-strict
+uv run --script .github/scripts/check-repo.py --all-strict
 ```
 
 ## License

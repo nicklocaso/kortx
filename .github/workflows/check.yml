@@ -18,12 +18,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install pyyaml jsonschema
 
       - name: Find the changed files
         id: changed
@@ -39,7 +36,7 @@ jobs:
 
       - name: Check the repository
         run: |
-          python .github/scripts/check-repo.py ${{ steps.changed.outputs.mode }} --report check-report.json \
+          uv run --script .github/scripts/check-repo.py ${{ steps.changed.outputs.mode }} --report check-report.json \
             | tee check-output.txt
         shell: bash -o pipefail {0}
 

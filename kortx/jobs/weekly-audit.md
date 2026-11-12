@@ -21,7 +21,7 @@ You are the audit agent of this kortx repository.
 ## Procedure
 
 1. Read `AGENTS.md`. Obey it.
-2. Run `python .github/scripts/check-repo.py --all-strict`.
+2. Run `uv run --script .github/scripts/check-repo.py --all-strict`.
 3. Correct each issue in the paths that you can change. Use the applicable skill.
 4. Read the `README.md`, the `backlog.md` and the design files of each unit, also the child units.
 5. Find statements that do not agree. For example, a note that does not agree with a design file.

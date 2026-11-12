@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3", "jsonschema==4.26.0"]
+# [tool.uv]
+# exclude-newer = "2026-11-10T00:00:00Z"
+# ///
 """Check the repository against its rules and contracts.
 
 Usage:

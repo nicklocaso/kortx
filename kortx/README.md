@@ -41,7 +41,7 @@ active
 - A `.py` file without the block is not a script for `kortx run`. It cannot run by mistake.
 - The script name is the file name without `.py`. Two scripts with the same name in one project are an error.
 - `kortx run <project> <script>` runs the script with `uv run`, in an isolated environment.
-- A script in a framework skill, for example `skills/sync-invoices/`, is not a project script. The skill runs it with `uv run --script <path>`.
+- A framework script, for example in `skills/sync-invoices/` or `.github/scripts/`, is not a project script. Run it with `uv run --script <path>`.
 - Each block has `[tool.uv] exclude-newer` with a date. uv uses only package versions older than this date. The result is the same each time, and a new malicious version cannot enter.
 
 ## Development

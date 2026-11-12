@@ -40,9 +40,20 @@ Many agents can work on this repository at the same time.
 1. Make sure that each commit contains one logical change only.
 2. Make sure that no secrets are in the change.
 3. Write the message.
-4. Make the commit.
-5. Run `git push` immediately.
-6. If the push fails, run `git pull --rebase`. Then push again.
+4. Stage the changes.
+5. Run the check:
+
+   ```
+   uv run --script .github/scripts/check-repo.py --changed $(git diff --cached --name-only)
+   ```
+
+6. If the check shows errors, correct them. Then do steps 4 and 5 again.
+7. Make the commit.
+8. Run `git push` immediately.
+9. If the push fails, run `git pull --rebase`. Then push again.
+
+Warnings in files that you did not change do not stop the commit.
+If uv is not available, tell the user that the check did not run.
 
 ## Examples
 
