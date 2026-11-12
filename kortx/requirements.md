@@ -40,9 +40,11 @@ This file gives the known requirements for the framework.
 
 ## Data in the framework
 
-- Do not write names of persons, companies or clients in the framework.
+- Do not write private data of an instance in the framework.
+- Private data is the names of units, persons, companies and clients. It is also the IDs of accounts and organizations, emails, amounts, local paths, private URLs and the content of private files.
 - You can write the names of tools and vendors, for example GitHub or Vercel, in the framework.
 - Exception: the author notice in `README.md`.
+- This rule also applies to the issues, pull requests and commit messages of the framework repository.
 
 ## Open questions
 

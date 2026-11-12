@@ -1,0 +1,40 @@
+name: Problem
+description: Report a problem of the kortx framework.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for the kortx framework repository.
+        Do not write private data of an instance. See "Data in the framework" in [kortx/requirements.md](https://github.com/nicklocaso/kortx/blob/main/kortx/requirements.md#data-in-the-framework).
+        Use generic names, for example `acme` for a client and `example-team` for an account.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Tell what does not operate correctly in the framework.
+    validations:
+      required: true
+  - type: textarea
+    id: real-case
+    attributes:
+      label: Real case
+      description: Tell how you found the problem. Use generic names only.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Tell how to correct the problem, if you know it.
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: Write the questions that need a decision.
+  - type: checkboxes
+    id: private-data
+    attributes:
+      label: Private data
+      options:
+        - label: I removed all private data of my instances from this issue.
+          required: true
