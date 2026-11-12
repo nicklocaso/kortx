@@ -85,6 +85,26 @@ A unit with a `Repositories` section never contains the code of the repositories
 
 The check refuses all other files and each git repository in the unit. The files of a child unit are not in this rule. The check examines them with the child unit.
 
+## Invoices section
+
+A unit that gets invoices from SaaS vendors has an `Invoices` section in its `README.md`, after `Structure`, `Units` and `Repositories`:
+
+```markdown
+## Invoices
+
+| Vendor | Account |
+| --- | --- |
+| `vercel` | `example-team` |
+```
+
+- The section is optional. If the section exists, the table has one or more rows.
+- Write the vendor and the account between backticks.
+- Write the vendor in kebab-case. The vendor must have a file `skills/sync-invoices/vendors/<vendor>.md`, or a unit skill `sync-<vendor>-invoices` in the unit or in a parent unit.
+- Write the account ID or slug of the vendor. Use only letters, digits, `.`, `_` and `-`. Do not write credentials.
+- Write each pair of vendor and account one time only.
+- The invoices are not in the repository. See `skills/sync-invoices/invoice-format.md`.
+- The dashboard does not use this section yet.
+
 ## Index
 
 - Put each unit that is directly in `projects/` in the index of `projects/README.md`.
@@ -100,11 +120,13 @@ A skill for one unit only is in `<unit>/skills/<name>/SKILL.md`.
 
 | Skill | Link |
 | --- | --- |
-| `projects/acme/skills/sync-invoices/` | `.agents/skills/acme--sync-invoices` |
-| `projects/acme/api/skills/sync-invoices/` | `.agents/skills/acme--api--sync-invoices` |
+| `projects/acme/skills/sync-example-invoices/` | `.agents/skills/acme--sync-example-invoices` |
+| `projects/acme/api/skills/sync-example-invoices/` | `.agents/skills/acme--api--sync-example-invoices` |
 
 The link names are unique because the unit names are unique and a kebab-case name never contains `--`.
 The check reports a link that is missing, broken or not necessary.
+
+The name `sync-invoices` is reserved for the framework skill. For an invoice skill of a unit, use `sync-<vendor>-invoices`.
 
 ## Jobs
 

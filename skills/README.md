@@ -15,6 +15,7 @@ The files use the Agent Skills format.
 | `new-skill` | Add a skill, or change the rules of a skill or a contract. |
 | `backlog` | Add, change, complete or show the tasks of a project. |
 | `new-job` | Add or change a recurring job in a project. |
+| `sync-invoices` | Download the missing invoices of the SaaS vendors of a unit. |
 
 ## Rules
 

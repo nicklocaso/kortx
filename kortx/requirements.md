@@ -36,10 +36,12 @@ This file gives the known requirements for the framework.
 - Use one Drive folder for each unit, with the same structure as the repository.
 - Each unit has an index of its documents: the Drive link, a short description and the Markdown version, if it exists.
 - Keep in the repository only small files that code needs.
+- Keep the files that a skill downloads, for example invoices, in `$KORTX_FILES/<instance>/<unit>/`. This folder can be a local folder or a Drive folder on the computer. It must be outside the repository.
 
 ## Data in the framework
 
 - Do not write names of persons, companies or clients in the framework.
+- You can write the names of tools and vendors, for example GitHub or Vercel, in the framework.
 - Exception: the author notice in `README.md`.
 
 ## Open questions

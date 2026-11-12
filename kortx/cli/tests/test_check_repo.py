@@ -38,6 +38,11 @@ def repositories(*rows):
     return text + "".join(f"| `{url}` | `{clone}` |\n" for url, clone in rows) + "\n"
 
 
+def invoices(*rows):
+    text = "## Invoices\n\n| Vendor | Account |\n| --- | --- |\n"
+    return text + "".join(f"| `{vendor}` | `{account}` |\n" for vendor, account in rows) + "\n"
+
+
 def readme(name, units=None, extra=""):
     text = f"# {name}\n\n## Purpose\n\nA test unit.\n\n## Status\n\nactive\n\n## Structure\n\n"
     text += "| Path | Content |\n| --- | --- |\n| `README.md` | This file. |\n\n"
@@ -201,6 +206,84 @@ class TestRepositoriesSection(CheckTestCase):
         subprocess.run(["git", "init", "-q"], cwd=clone, check=True)
         (clone / "main.py").write_text("print(1)\n")
         self.assertRepositoriesIssue("A git repository is in the unit", "projects/acme/api/clone")
+
+
+class TestInvoicesSection(CheckTestCase):
+    """The child unit `api` has an Invoices section. The framework skill sync-invoices knows `vercel`."""
+
+    def setUp(self):
+        super().setUp()
+        self.write("skills/README.md", index("Skills", ["new-job", "sync-invoices"]))
+        self.write("skills/sync-invoices/SKILL.md", "---\nname: sync-invoices\ndescription: Get invoices.\n---\n")
+        self.write("skills/sync-invoices/vendors/vercel.md", "# Vercel\n")
+
+    def set_invoices(self, *rows):
+        self.add_unit("projects/acme/api", extra=invoices(*rows))
+
+    def add_unit_skill(self, folder, name):
+        self.write(f"{folder}/skills/{name}/SKILL.md", f"---\nname: {name}\ndescription: Get invoices.\n---\n")
+
+    def assertInvoicesIssue(self, text, path="projects/acme/api/README.md"):
+        self.assertIssue(path, "invoices", text)
+
+    def test_valid_invoices(self):
+        self.set_invoices(("vercel", "example-team"))
+        self.assertEqual(self.issues(), [])
+
+    def test_vendor_known_through_unit_skill(self):
+        for folder in ("projects/acme/api", "projects/acme"):
+            with self.subTest(folder=folder):
+                self.add_unit_skill(folder, "sync-example-invoices")
+                self.set_invoices(("example", "example-org"))
+                self.assertEqual(self.issues(), [])
+                (self.root / f"{folder}/skills/sync-example-invoices/SKILL.md").unlink()
+                (self.root / f"{folder}/skills/sync-example-invoices").rmdir()
+                (self.root / f"{folder}/skills").rmdir()
+
+    def test_unit_skill_without_skill_file(self):
+        (self.root / "projects/acme/api/skills/sync-example-invoices").mkdir(parents=True)
+        self.set_invoices(("example", "example-org"))
+        self.assertInvoicesIssue("The vendor example is not known")
+
+    def test_table_not_valid(self):
+        self.add_unit("projects/acme/api", extra="## Invoices\n\n| Name | ID |\n| --- | --- |\n\n")
+        self.assertInvoicesIssue("must start with")
+
+    def test_table_without_rows(self):
+        self.set_invoices()
+        self.assertInvoicesIssue("has no vendor")
+
+    def test_row_not_valid(self):
+        self.add_unit("projects/acme/api", extra=invoices()[:-1] + "| vercel | example-team |\n\n")
+        self.assertInvoicesIssue("Row not valid")
+
+    def test_vendor_not_kebab_case(self):
+        for vendor in ("Vercel", "my_vendor", "a.b"):
+            with self.subTest(vendor=vendor):
+                self.set_invoices((vendor, "example-team"))
+                self.assertInvoicesIssue(f"The vendor {vendor} is not in kebab-case")
+
+    def test_vendor_not_known(self):
+        self.set_invoices(("example", "example-team"))
+        self.assertInvoicesIssue("The vendor example is not known")
+
+    def test_account_not_valid(self):
+        for account in ("user@example.com", "team:token", "a/b", "-team", "a b"):
+            with self.subTest(account=account):
+                self.set_invoices(("vercel", account))
+                self.assertInvoicesIssue(f"{account} is not valid. Use an ID or a slug")
+
+    def test_duplicate_rows(self):
+        self.set_invoices(("vercel", "example-team"), ("vercel", "example-team"))
+        self.assertInvoicesIssue("vercel example-team is in the table more than one time")
+
+    def test_same_vendor_with_two_accounts(self):
+        self.set_invoices(("vercel", "example-team"), ("vercel", "example-org"))
+        self.assertEqual(self.issues(), [])
+
+    def test_reserved_unit_skill_name(self):
+        self.add_unit_skill("projects/acme/api", "sync-invoices")
+        self.assertIssue("projects/acme/api/skills/sync-invoices", "skill", "reserved for the framework skill")
 
 
 class TestNotValidRepository(CheckTestCase):

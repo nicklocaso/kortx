@@ -36,6 +36,12 @@ REPOSITORIES_TABLE = ["| Repository | Local clone |", "| --- | --- |"]
 REPOSITORY_ROW = re.compile(r"^\| `(?P<url>[^`]+)` \| `(?P<clone>[^`]+)` \|$")
 REPOSITORY_URL = re.compile(r"^(https://[^\s/@]+/\S+|git@[^\s:/@]+:\S+)$")
 REPOSITORY_CLONE = re.compile(r"^~/\S+$")
+INVOICES_SECTION = "Invoices"
+INVOICES_TABLE = ["| Vendor | Account |", "| --- | --- |"]
+INVOICE_ROW = re.compile(r"^\| `(?P<vendor>[^`]+)` \| `(?P<account>[^`]+)` \|$")
+INVOICE_VENDOR = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+INVOICE_ACCOUNT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+INVOICES_SKILL = "sync-invoices"
 SKILL_LINKS = ".agents/skills"
 CLAUDE_SKILLS = ".claude/skills"
 CLAUDE_SKILLS_TARGET = "../.agents/skills"
@@ -205,6 +211,8 @@ def check_projects(c):
         check_units_section(c, unit, children)
         if check_repositories_section(c, unit):
             check_repository_unit_files(c, unit, units)
+        check_invoices_section(c, unit)
+        check_reserved_skill(c, unit)
         check_backlog(c, unit)
         check_jobs(c, unit, children)
 
@@ -291,6 +299,60 @@ def check_repository_unit_files(c, folder, units):
         c.add(f, "repositories", f"Not permitted in a unit with a {REPOSITORIES_SECTION} section. "
               f"Use Markdown files, skills in {SKILLS_FOLDER}/, "
               f"or data files in {DATA_FOLDER}/: {', '.join(sorted(DATA_FORMATS))}.")
+
+
+def parents_of(unit):
+    """Return the parent units of a unit, nearest first."""
+    result = []
+    parent = parent_of(unit)
+    while parent.startswith("projects/"):
+        result.append(parent)
+        parent = parent_of(parent)
+    return result
+
+
+def check_invoices_section(c, folder):
+    """Check the Invoices section, if the README has it."""
+    path = f"{folder}/README.md"
+    if not (ROOT / path).exists():
+        return
+    order, content = sections(read(path))
+    if INVOICES_SECTION not in order:
+        return
+    lines = [line.strip() for line in content[INVOICES_SECTION]]
+    if lines[:2] != INVOICES_TABLE:
+        c.add(path, "invoices", f"The {INVOICES_SECTION} table must start with {INVOICES_TABLE[0]}.")
+        return
+    if len(lines) == 2:
+        c.add(path, "invoices", f"The {INVOICES_SECTION} table has no vendor.")
+    owners = [folder, *parents_of(folder)]
+    seen = set()
+    for line in lines[2:]:
+        m = INVOICE_ROW.match(line)
+        if not m:
+            c.add(path, "invoices", f"Row not valid: {line}")
+            continue
+        vendor, account = m["vendor"], m["account"]
+        if not INVOICE_VENDOR.match(vendor):
+            c.add(path, "invoices", f"The vendor {vendor} is not in kebab-case.")
+        elif not (ROOT / f"{SKILLS_FOLDER}/{INVOICES_SKILL}/vendors/{vendor}.md").exists() and not any(
+            (ROOT / f"{u}/{SKILLS_FOLDER}/sync-{vendor}-invoices/SKILL.md").exists() for u in owners
+        ):
+            c.add(path, "invoices", f"The vendor {vendor} is not known. "
+                  f"Add {SKILLS_FOLDER}/{INVOICES_SKILL}/vendors/{vendor}.md, or a unit skill "
+                  f"sync-{vendor}-invoices in the unit or in a parent unit.")
+        if not INVOICE_ACCOUNT.match(account):
+            c.add(path, "invoices", f"{account} is not valid. Use an ID or a slug, without credentials.")
+        if (vendor, account) in seen:
+            c.add(path, "invoices", f"{vendor} {account} is in the table more than one time.")
+        seen.add((vendor, account))
+
+
+def check_reserved_skill(c, folder):
+    """A unit skill cannot use the name of the framework invoices skill."""
+    if (ROOT / folder / SKILLS_FOLDER / INVOICES_SKILL).is_dir():
+        c.add(f"{folder}/{SKILLS_FOLDER}/{INVOICES_SKILL}", "skill",
+              f"The name {INVOICES_SKILL} is reserved for the framework skill. Use sync-<vendor>-invoices.")
 
 
 def check_backlog(c, folder):

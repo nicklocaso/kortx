@@ -128,6 +128,20 @@ The CLI runs on Linux and macOS. On Windows, use WSL.
 The CLI uses the code in the clone. After an update, the next command uses the new code.
 Do not use `uv tool install`. It does not use `uv.lock`, so the versions of the dependencies can be different.
 
+### Files folder
+
+Some skills download files that must not be in the repository, for example invoices.
+
+1. Make a folder outside all instances, for example `~/files`.
+2. Add this line to `~/.zshrc` or `~/.bashrc`:
+
+   ```
+   export KORTX_FILES="$HOME/files"
+   ```
+
+The skills write in `$KORTX_FILES/<instance>/<unit>/`. Thus the files of two instances are not in the same folder.
+The `sync-invoices` skill also needs Node.js and npm.
+
 ## Check
 
 A GitHub Action checks the repository on each push.
