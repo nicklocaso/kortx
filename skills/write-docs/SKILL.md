@@ -8,6 +8,9 @@ description: Write documentation and messages to the user with ASD-STE100 rules.
 ## Language
 
 - Write repository text in English.
+- Write in English the names of the files, folders and branches that you make. This rule also applies outside the repository.
+- Exception: keep a name from an external source, for example the name of a downloaded file or an invoice number.
+- Exception: use the name that the user gives.
 - Write messages to the user in the language of the instance. See `AGENTS.md`. If it is not English, apply the rules only, not the dictionary.
 
 ## Rules (ASD-STE100)

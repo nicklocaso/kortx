@@ -11,7 +11,7 @@ These rules apply to the files of this repository. In another repository, the ru
 
 ## Rules
 
-1. Talk to the user in the language of the instance. Write all repository content in English.
+1. Talk to the user in the language of the instance. Write all repository content in English. Write in English all names that you make, also outside the repository.
 2. Apply the ASD-STE100 rules to all text. Use the `write-docs` skill.
 3. Do all work through skills. Find them in `skills/README.md`. If no skill is applicable, use `new-skill`.
 4. Before you start a task, run `git pull`. Use the `commit` skill for each commit.

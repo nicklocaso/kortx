@@ -86,3 +86,4 @@ To add a command:
 - 2026-11-09: Start the session in the repository of the main work. Add the repositories that you only read. In each repository, the rules of that repository apply.
 - 2026-11-12: Skills keep downloaded files in `$KORTX_FILES/<instance>/<unit>/`, outside the repository. Invoice skills follow `skills/sync-invoices/invoice-format.md`.
 - 2026-11-12: A framework skill locks its npm tools with `package-lock.json` and installs them in the user cache with `npm ci --ignore-scripts`.
+- 2026-11-13: Write in English all names that agents make, also outside the repository. A script cannot check the language of a name.
