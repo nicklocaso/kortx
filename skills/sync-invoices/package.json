@@ -1,6 +1,7 @@
 {
   "private": true,
   "dependencies": {
+    "neonctl": "9.3.2",
     "vercel": "65.11.0"
   }
 }

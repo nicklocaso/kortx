@@ -25,9 +25,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pypdf
 
@@ -51,13 +54,25 @@ NOT_ALNUM = re.compile(r"[^A-Za-z0-9]")
 MESSAGE_MAX = 300
 PDF_MAGIC = b"%PDF-"
 PDF_PAGES = 3
+INSTALL_TIMEOUT = 600
 
 VERCEL_CLI_ENV = "KORTX_VERCEL_CLI"
 VERCEL_LIST_TIMEOUT = 120
 VERCEL_DOWNLOAD_TIMEOUT = 300
-VERCEL_INSTALL_TIMEOUT = 600
 VERCEL_MAX_PAGES = 100
 VERCEL_FIELDS = {"id": "id", "number": "invoiceNumber", "issued": "issuedAt", "status": "status"}
+
+NEON_CLI_ENV = "KORTX_NEON_CLI"
+NEON_API_ENV = "KORTX_NEON_API"
+NEON_API = "https://console.neon.tech"
+NEON_CREDENTIALS = "~/.config/neonctl/credentials.json"
+NEON_SESSION_TIMEOUT = 120
+NEON_LIST_TIMEOUT = 30
+NEON_DOWNLOAD_TIMEOUT = 60
+NEON_ORG = re.compile(r"^org-[a-z0-9-]+$")
+NEON_FIELDS = {"id": "pdf_url", "number": "invoice_number", "issued": "issued_at", "status": "status"}
+NEON_MORE_KEYS = ("pagination", "next", "next_cursor", "cursor", "has_more")
+LOCAL_HOSTS = ("127.0.0.1", "localhost")
 
 
 class ConfigError(Exception):
@@ -80,9 +95,13 @@ class Invoice:
     status: str
 
 
-def sanitize(text):
-    """Remove URLs and control characters from external text, and cut it."""
-    text = SECRET.sub(r"\1 <secret>", URL.sub("<url>", str(text)))
+def sanitize(text, secrets=()):
+    """Remove secrets, URLs and control characters from external text, and cut it."""
+    text = str(text)
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "<secret>")
+    text = SECRET.sub(r"\1 <secret>", URL.sub("<url>", text))
     text = CONTROL.sub(" ", ANSI.sub("", text))
     return " ".join(text.split())[:MESSAGE_MAX]
 
@@ -215,6 +234,27 @@ def stderr_text(result):
     return sanitize(result.stderr.decode("utf-8", errors="replace")) or f"exit code {result.returncode}"
 
 
+def install_cli(name):
+    """Install the locked CLI packages in the cache, if they are not there. Return the path of the CLI."""
+    lock = SKILL_DIR / "package-lock.json"
+    digest = hashlib.sha256(lock.read_bytes()).hexdigest()[:12]
+    cache_home = os.environ.get("XDG_CACHE_HOME") or str(Path("~/.cache").expanduser())
+    cache = Path(cache_home) / "kortx" / "sync-invoices" / digest
+    binary = cache / "node_modules" / ".bin" / name
+    if binary.exists():
+        return str(binary)
+    cache.mkdir(parents=True, exist_ok=True)
+    for file in ("package.json", "package-lock.json"):
+        shutil.copyfile(SKILL_DIR / file, cache / file)
+    args = ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", str(cache)]
+    result = run(args, INSTALL_TIMEOUT, ConfigError)
+    if result.returncode != 0:
+        raise ConfigError(f"npm ci failed: {stderr_text(result)}")
+    if not binary.exists():
+        raise ConfigError(f"npm ci did not install the {name} CLI")
+    return str(binary)
+
+
 class Vercel:
     """Adapter for the Vercel CLI."""
 
@@ -223,28 +263,8 @@ class Vercel:
 
     def cli(self):
         if self.bin is None:
-            self.bin = os.environ.get(VERCEL_CLI_ENV) or self.install()
+            self.bin = os.environ.get(VERCEL_CLI_ENV) or install_cli("vercel")
         return self.bin
-
-    def install(self):
-        """Install the locked CLI in the cache, if it is not there. Return the path of the CLI."""
-        lock = SKILL_DIR / "package-lock.json"
-        digest = hashlib.sha256(lock.read_bytes()).hexdigest()[:12]
-        cache_home = os.environ.get("XDG_CACHE_HOME") or str(Path("~/.cache").expanduser())
-        cache = Path(cache_home) / "kortx" / "sync-invoices" / digest
-        binary = cache / "node_modules" / ".bin" / "vercel"
-        if binary.exists():
-            return str(binary)
-        cache.mkdir(parents=True, exist_ok=True)
-        for name in ("package.json", "package-lock.json"):
-            shutil.copyfile(SKILL_DIR / name, cache / name)
-        args = ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", str(cache)]
-        result = run(args, VERCEL_INSTALL_TIMEOUT, ConfigError)
-        if result.returncode != 0:
-            raise ConfigError(f"npm ci failed: {stderr_text(result)}")
-        if not binary.exists():
-            raise ConfigError("npm ci did not install the Vercel CLI")
-        return str(binary)
 
     def list_invoices(self, account):
         cli = self.cli()
@@ -301,7 +321,128 @@ class Vercel:
         return result.stdout
 
 
-ADAPTERS = {"vercel": Vercel}
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not follow redirects. The opener then raises an HTTPError with the 3xx code."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+class CheckedRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only if the new URL is allowed."""
+
+    def __init__(self, allowed):
+        self.allowed = allowed
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not self.allowed(newurl):
+            raise DownloadError("the PDF link was redirected")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class Neon:
+    """Adapter for the Neon Console API. The Neon CLI only refreshes the session."""
+
+    def __init__(self):
+        self.bin = None
+        self.token = None
+        self.base = NEON_API
+        self.local = None
+        override = os.environ.get(NEON_API_ENV)
+        if override:
+            url = urlsplit(override)
+            if url.scheme not in ("http", "https") or url.hostname not in LOCAL_HOSTS:
+                raise ConfigError(f"{NEON_API_ENV} must be a local URL")
+            self.base = override.rstrip("/")
+            self.local = (url.scheme, url.hostname)
+
+    def cli(self):
+        if self.bin is None:
+            self.bin = os.environ.get(NEON_CLI_ENV) or install_cli("neonctl")
+        return self.bin
+
+    def clean(self, text):
+        return sanitize(text, [self.token] if self.token else [])
+
+    def allowed(self, url):
+        parts = urlsplit(url)
+        if parts.scheme == "https" and parts.hostname:
+            return True
+        return self.local is not None and (parts.scheme, parts.hostname) == self.local
+
+    def read_token(self, cli):
+        try:
+            data = json.loads(Path(NEON_CREDENTIALS).expanduser().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = None
+        token = data.get("access_token") if isinstance(data, dict) else None
+        if not isinstance(token, str) or not token:
+            raise ListError(f"no Neon token. Run: ! {cli} auth")
+        return token
+
+    def list_invoices(self, account):
+        if not NEON_ORG.match(account):
+            raise ListError("the account is not a Neon organization ID")
+        cli = self.cli()
+        if run([cli, "me", "--no-analytics"], NEON_SESSION_TIMEOUT, ListError).returncode != 0:
+            raise ListError(f"no Neon session. Run: ! {cli} auth")
+        self.token = self.read_token(cli)
+        request = urllib.request.Request(
+            f"{self.base}/api/v2/organizations/{account}/billing/invoices",
+            headers={"Authorization": f"Bearer {self.token}", "Accept": "application/json"},
+        )
+        opener = urllib.request.build_opener(NoRedirect)
+        try:
+            with opener.open(request, timeout=NEON_LIST_TIMEOUT) as response:
+                body = response.read()
+        except urllib.error.HTTPError as e:
+            if 300 <= e.code < 400:
+                raise ListError("the list request was redirected")
+            raise ListError(f"HTTP {e.code}")
+        except urllib.error.URLError as e:
+            raise ListError(self.clean(e.reason))
+        except OSError as e:
+            raise ListError(self.clean(e.strerror or type(e).__name__))
+        return self.parse_list(body)
+
+    def parse_list(self, body):
+        try:
+            data = json.loads(body)
+        except ValueError:
+            raise ListError("the list output is not JSON")
+        if not isinstance(data, dict) or not isinstance(data.get("invoices"), list):
+            raise ListError("the list output has no invoices list")
+        if any(data.get(key) for key in NEON_MORE_KEYS):
+            raise ListError("the list has more pages")
+        invoices = []
+        for item in data["invoices"]:
+            if not isinstance(item, dict):
+                raise ListError("an invoice is not an object")
+            fields = {}
+            for field, key in NEON_FIELDS.items():
+                if not isinstance(item.get(key), str):
+                    raise ListError(f"an invoice has no {key} string")
+                fields[field] = item[key]
+            invoices.append(Invoice(**fields))
+        return invoices
+
+    def download(self, invoice, account):
+        if not self.allowed(invoice.id):
+            raise DownloadError("the PDF link is not valid")
+        request = urllib.request.Request(invoice.id)
+        opener = urllib.request.build_opener(CheckedRedirect(self.allowed))
+        try:
+            with opener.open(request, timeout=NEON_DOWNLOAD_TIMEOUT) as response:
+                return response.read()
+        except urllib.error.HTTPError as e:
+            raise DownloadError(f"HTTP {e.code}")
+        except urllib.error.URLError as e:
+            raise DownloadError(self.clean(e.reason))
+        except OSError as e:
+            raise DownloadError(self.clean(e.strerror or type(e).__name__))
+
+
+ADAPTERS = {"vercel": Vercel, "neon": Neon}
 
 
 def write_new(path, data):

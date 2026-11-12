@@ -1,4 +1,4 @@
-"""Tests for the sync-invoices script, with a fake Vercel CLI and hand-made PDF files.
+"""Tests for the sync-invoices script, with fake Vercel and Neon CLIs, a local HTTP server and hand-made PDF files.
 
 The script is skills/sync-invoices/sync_invoices.py. It needs pypdf, which is not in the CLI environment.
 Thus the tests run the script as a subprocess with `uv run --script`, in a temporary copy of an instance.
@@ -12,7 +12,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -113,7 +115,8 @@ class SyncTestCase(unittest.TestCase):
         target = self.root / "skills" / "sync-invoices"
         (target / "vendors").mkdir(parents=True)
         shutil.copyfile(SKILL / "sync_invoices.py", target / "sync_invoices.py")
-        shutil.copyfile(SKILL / "vendors" / "vercel.md", target / "vendors" / "vercel.md")
+        for vendor in ("vercel.md", "neon.md"):
+            shutil.copyfile(SKILL / "vendors" / vendor, target / "vendors" / vendor)
         self.script = target / "sync_invoices.py"
         self.cli = self.work / "vercel"
         self.cli.write_text(FAKE_CLI.format(python=sys.executable, log_env=LOG_ENV, fixture_env=FIXTURE_ENV))
@@ -140,13 +143,15 @@ class SyncTestCase(unittest.TestCase):
 
     def env(self, **override):
         env = dict(os.environ)
-        for name in ("KORTX_FILES", "KORTX_VERCEL_CLI", "VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"):
+        for name in ("KORTX_FILES", "KORTX_VERCEL_CLI", "KORTX_NEON_CLI", "KORTX_NEON_API", "VIRTUAL_ENV",
+                     "UV_PROJECT_ENVIRONMENT"):
             env.pop(name, None)
         env.update({
             "KORTX_FILES": str(self.files),
             "KORTX_VERCEL_CLI": str(self.cli),
             "XDG_CACHE_HOME": str(self.work / "cache"),
             "UV_CACHE_DIR": self.uv_cache,
+            "NO_PROXY": "127.0.0.1,localhost",
             FIXTURE_ENV: str(self.fixture_path),
             LOG_ENV: str(self.log_path),
         })
@@ -413,6 +418,194 @@ class TestParameters(SyncTestCase):
     def test_vendor_not_known(self):
         self.set_table(("vercel", ACCOUNT), ("unknown-vendor", ACCOUNT))
         self.assertConfigError(["acme"], "the vendor unknown-vendor is not known")
+
+
+NEON_ORG = "org-example-00000000"
+NEON_TOKEN = "fake-token-0123456789"
+NEON_LIST = f"/api/v2/organizations/{NEON_ORG}/billing/invoices"
+OTHER_HOST = "http://invoices.example.test"
+
+FAKE_NEON_CLI = """#!{python}
+import json, os, sys
+
+with open(os.environ["{log_env}"], "a", encoding="utf-8") as log:
+    log.write(json.dumps(sys.argv[1:]) + "\\n")
+with open(os.environ["{fixture_env}"], encoding="utf-8") as f:
+    fixture = json.load(f)
+sys.exit(fixture.get("neon_exit", 0))
+"""
+
+
+class NeonHandler(BaseHTTPRequestHandler):
+    """Record each request. Answer from the routes of the test: path -> (status, headers, body)."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        server = self.server
+        server.requests.append((self.path, self.headers.get("Authorization")))
+        status, headers, body = server.routes.get(self.path, (404, {}, b""))
+        self.send_response(status)
+        for name, value in headers.items():
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class TestNeon(SyncTestCase):
+    """The Neon adapter, with a fake Neon CLI and a local HTTP server for the Neon Console API."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_table(("neon", NEON_ORG))
+        self.home = self.work / "home"
+        self.credentials = self.home / ".config" / "neonctl" / "credentials.json"
+        self.credentials.parent.mkdir(parents=True)
+        self.credentials.write_text(json.dumps({"access_token": NEON_TOKEN}), encoding="utf-8")
+        self.neon_cli = self.work / "neonctl"
+        self.neon_cli.write_text(FAKE_NEON_CLI.format(python=sys.executable, log_env=LOG_ENV,
+                                                      fixture_env=FIXTURE_ENV))
+        self.neon_cli.chmod(0o755)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), NeonHandler)
+        self.server.requests = []
+        self.server.routes = {}
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.data = pdf("Invoice NEON-0001")
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        super().tearDown()
+
+    def env(self, **override):
+        values = {"HOME": str(self.home), "KORTX_NEON_CLI": str(self.neon_cli), "KORTX_NEON_API": self.base}
+        values.update(override)
+        return super().env(**values)
+
+    def neon_path(self, number, date="2026-10-01"):
+        return self.files / "example" / "acme" / "invoices" / "neon" / date[:4] / f"{date}_neon_{number}.pdf"
+
+    def neon_invoice(self, number, pdf_url, issued="2026-10-01T10:00:00Z", status="paid"):
+        return {"invoice_number": number, "issued_at": issued, "status": status, "pdf_url": pdf_url}
+
+    def set_list(self, *invoices, status=200, headers=None, body=None, **extra):
+        if body is None:
+            body = json.dumps({"invoices": list(invoices), **extra}).encode()
+        self.server.routes[NEON_LIST] = (status, headers or {}, body)
+
+    def requested(self):
+        return [path for path, _ in self.server.requests]
+
+    def assertListError(self, lines, message):
+        errors = [line for line in lines if line.startswith(f"error: neon {NEON_ORG}:")]
+        self.assertEqual(len(errors), 1, lines)
+        self.assertIn(message, errors[0])
+
+    def test_first_and_second_run(self):
+        self.set_list(self.neon_invoice("NEON-0001", f"{self.base}/pdf/1"),
+                      self.neon_invoice("NEON-0002", f"{self.base}/pdf/2", issued="2026-11-01T10:00:00Z",
+                                        status="open"))
+        self.server.routes["/pdf/1"] = (200, {}, self.data)
+        self.server.routes["/pdf/2"] = (200, {}, pdf("Invoice NEON-0002"))
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 0, lines)
+        path = self.files / "example/acme/invoices/neon/2026/2026-10-01_neon_NEON-0001.pdf"
+        self.assertEqual(self.neon_path("NEON-0001"), path)
+        self.assertLine(f"new: {path}", lines)
+        self.assertLine("not paid: open NEON-0002", lines)
+        self.assertSummary(lines, paid=1, new=1)
+        self.assertEqual(path.read_bytes(), self.data)
+        self.assertEqual(self.all_files(), [path])
+        self.assertEqual(self.server.requests,
+                         [(NEON_LIST, f"Bearer {NEON_TOKEN}"), ("/pdf/1", None)])
+        self.assertIn(["me", "--no-analytics"], map(json.loads, self.log_path.read_text().splitlines()))
+
+        self.server.requests.clear()
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 0, lines)
+        self.assertSummary(lines, paid=1, new=0)
+        self.assertEqual(self.requested(), [NEON_LIST])
+        self.assertEqual(path.read_bytes(), self.data)
+
+    def test_no_session(self):
+        self.fixture = {"neon_exit": 1}
+        self.set_list()
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertListError(lines, "no Neon session")
+        self.assertEqual(self.server.requests, [])
+
+    def test_no_token(self):
+        self.credentials.unlink()
+        self.set_list()
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertListError(lines, "no Neon token")
+        self.assertEqual(self.server.requests, [])
+
+    def test_list_http_error_without_token_in_output(self):
+        self.set_list(status=500, body=f"error token {NEON_TOKEN} Bearer {NEON_TOKEN}".encode())
+        code, lines, stderr = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertListError(lines, "HTTP 500")
+        self.assertNotIn(NEON_TOKEN, "\n".join(lines) + stderr)
+        self.assertEqual(self.all_files(), [])
+
+    def test_list_redirect(self):
+        self.set_list(status=302, headers={"Location": f"{self.base}/other"}, body=b"")
+        self.server.routes["/other"] = (200, {}, json.dumps({"invoices": []}).encode())
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertListError(lines, "the list request was redirected")
+        self.assertEqual(self.requested(), [NEON_LIST])
+
+    def test_list_has_more_pages(self):
+        self.set_list(self.neon_invoice("NEON-0001", f"{self.base}/pdf/1"), has_more=True)
+        self.server.routes["/pdf/1"] = (200, {}, self.data)
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertListError(lines, "the list has more pages")
+        self.assertEqual(self.requested(), [NEON_LIST])
+        self.assertEqual(self.all_files(), [])
+
+    def test_pdf_link_not_valid(self):
+        self.set_list(self.neon_invoice("NEON-0001", f"{OTHER_HOST}/x.pdf"))
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 1, lines)
+        self.assertLine(f"missing: {self.neon_path('NEON-0001')} (the PDF link is not valid)", lines)
+        self.assertSummary(lines, paid=1, missing=1)
+        self.assertEqual(self.requested(), [NEON_LIST])
+        self.assertEqual(self.all_files(), [])
+
+    def test_pdf_redirect(self):
+        self.set_list(self.neon_invoice("NEON-0001", f"{self.base}/pdf/1"))
+        self.server.routes["/pdf/1"] = (302, {"Location": f"{OTHER_HOST}/x.pdf"}, b"")
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 1, lines)
+        self.assertLine(f"missing: {self.neon_path('NEON-0001')} (the PDF link was redirected)", lines)
+        self.assertSummary(lines, paid=1, missing=1)
+        self.assertEqual(self.requested(), [NEON_LIST, "/pdf/1"])
+        self.assertEqual(self.all_files(), [])
+
+    def test_account_not_organization(self):
+        self.set_table(("neon", ACCOUNT))
+        self.set_list()
+        code, lines, _ = self.sync()
+        self.assertEqual(code, 2, lines)
+        self.assertLine(f"error: neon {ACCOUNT}: the account is not a Neon organization ID", lines)
+        self.assertEqual(self.server.requests, [])
+
+    def test_api_not_local(self):
+        code, lines, stderr = self.sync(KORTX_NEON_API="https://console.example.test")
+        self.assertEqual(code, 2, lines)
+        self.assertIn("error: KORTX_NEON_API must be a local URL", stderr)
+        self.assertEqual(lines, [])
+        self.assertEqual(self.server.requests, [])
 
 
 if __name__ == "__main__":
